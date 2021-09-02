@@ -12,7 +12,26 @@ import java.util.logging.Logger;
 
 public class CFLP {
 	
-	private static final Logger LOGGER = Logger.getLogger(CFLP.class.getName());
+	private final static Logger LOGGER = Logger.getLogger(CFLP.class.getName());
+	
+	// Sets
+	private static int K = 0; // Set of commodities/products
+	private static int I = 0; // Set of production plant
+	private static int J = 0; // Set of potential candidate facility locations
+	private static int R = 0; // Set of customers
+
+	// Parameters
+	private static List<List<Integer>> drk = new ArrayList<>(); // Demand of product k for customer r
+	private static List<List<Integer>> pik = new ArrayList<>(); // Capacity of product k for plant i
+	private static List<Integer> qj_min = new ArrayList<>(); // Minimum activity level for facility j
+	private static List<Integer> qj_max = new ArrayList<>(); // Maximum activity level for facility j
+	private static List<Double> fj = new ArrayList<>(); // Facility fixed cost
+	private static List<Double> gj = new ArrayList<>(); // Facility marginal cost
+	private static List<Double> ck = new ArrayList<>(); // Unit transportation cost for product k
+	private static List<List<Double>> lij = new ArrayList<>(); // Distance from plant i to facility j
+	private static List<List<Double>> ljr = new ArrayList<>(); // Distance from facility j to customer r
+	private static int p; // Desired number of facilities to be open
+	private static boolean singleAllocation; // Single allocation or divisible demand
 	
 	public static void main(String[] args) {
 		/*
@@ -23,78 +42,175 @@ public class CFLP {
 		 * 4 - file with maximum activity level for facilities 
 		 * 5 - file with fixed cost for facilities
 		 * 6 - file with marginal cost for facilities
-		 * 7 - file with unit transportation cost from plant to facility
-		 * 8 - file with unit transportation cost from facility to customer
-		 * 9 - file with distances from plant to facility
-		 * 10 - file with distances from facility to customer
-		 * 11 - desired number of facilities to be open
-		 * 12 - "single" or "divisible" 
-		 * 
+		 * 7 - file with unit transportation cost for product k
+		 * 8 - file with distances from plant to facility
+		 * 9 - file with distances from facility to customer
+		 * 10 - desired number of facilities to be open
+		 * 11 - "single" or "divisible" 
 		 */
 		
-		if(args.length != 12) {
+		if(args.length != 11) {
 			LOGGER.log(Level.SEVERE, "Invalid input. Please reference README for execution instructions.");
 			return;
 		}
 		
-		//Sets
-		int K = 0; //Set of commodities/products
-		int I = 0; //Set of production plant
-		int J = 0; //Set of potential candidate facility locations
-		int R = 0; //Set of customers
+		init(args);
 		
-		//Parameters
-		List<List<Integer>> drk = new ArrayList<>(); //Demand of product k for customer r
-		List<List<Integer>> pik = new ArrayList<>(); //Capacity of product k for plant i
-		
-		
-		//Check existence of demand file
-		Path pathToDemandMatrix = Paths.get(args[0]);
-		if (!Files.exists(pathToDemandMatrix)) {
-			LOGGER.log(Level.SEVERE, "File '" + args[0] + "' does not exist.");
+	}
+	
+	/**
+	 * This method initializes all the sets and parameters.
+	 * 
+	 * @param args the command line arguments
+	 */
+	private static void init(String[] args) {
+		// Customer Demand
+		if (!fileExists(args[0])) {
+			logFileDNE(args[0]);
 			return;
 		}
-		Scanner scanner = getScanner(pathToDemandMatrix.toString());
-		
-		while(scanner.hasNextLine()) {
+		Scanner scanner = getScanner(args[0]);
+
+		while (scanner.hasNextLine()) {
 			R++;
 			String[] rawLine = scanner.nextLine().split(",");
 			List<Integer> demands = new ArrayList<>();
-			for(String demand : rawLine) {
+			for (String demand : rawLine) {
 				demands.add(Integer.parseInt(demand));
 			}
 			drk.add(demands);
 			K = demands.size();
 		}
-		
-		//@TODO Remove
+
+		// @TODO Remove
 		System.out.println("R: " + R);
 		System.out.println("K: " + K);
 		System.out.println("Demand: " + Arrays.deepToString(drk.toArray()));
-		
-		//Check existence of plant capacity file
-		Path pathToPlantCapacities = Paths.get(args[1]);
-		if (!Files.exists(pathToPlantCapacities)) {
-			LOGGER.log(Level.SEVERE, "File '" + args[1] + "' does not exist.");
+
+		// Plant Capacity
+		if (!fileExists(args[1])) {
+			logFileDNE(args[1]);
 			return;
 		}
-		scanner = getScanner(pathToPlantCapacities.toString());
-		
-		while(scanner.hasNextLine()) {
+		scanner = getScanner(args[1]);
+
+		while (scanner.hasNextLine()) {
 			I++;
 			String[] rawLine = scanner.nextLine().split(",");
 			List<Integer> capacities = new ArrayList<>();
-			for(String capacity : rawLine) {
+			for (String capacity : rawLine) {
 				capacities.add(Integer.parseInt(capacity));
 			}
 			pik.add(capacities);
 		}
-		
-		//@TODO Remove
+
+		// @TODO Remove
 		System.out.println("I: " + I);
 		System.out.println("Capcities: " + Arrays.deepToString(pik.toArray()));
-		
-		
+
+		// Facility Minimum Activity Level
+		if (!fileExists(args[2])) {
+			logFileDNE(args[2]);
+			return;
+		}
+		scanner = getScanner(args[2]);
+
+		while (scanner.hasNextLine()) {
+			String[] rawLine = scanner.nextLine().split(",");
+			for (String activityLevel : rawLine) {
+				qj_min.add(Integer.parseInt(activityLevel));
+			}
+			J = rawLine.length;
+		}
+
+		// @TODO Remove
+		System.out.println("J: " + J);
+		System.out.println("Min activity: " + Arrays.deepToString(qj_min.toArray()));
+
+		// Facility Maximum Activity Level
+		if (!fileExists(args[3])) {
+			logFileDNE(args[3]);
+			return;
+		}
+		scanner = getScanner(args[3]);
+		populateIntegerVectorParam(scanner, qj_max);
+
+		// @TODO Remove
+		System.out.println("Max acitivity: " + Arrays.deepToString(qj_max.toArray()));
+
+		// Facility Fixed Cost
+		if (!fileExists(args[4])) {
+			logFileDNE(args[4]);
+			return;
+		}
+		scanner = getScanner(args[4]);
+		populateDoubleVectorParam(scanner, fj);
+
+		// @TODO Remove
+		System.out.println("Fixed cost: " + Arrays.deepToString(fj.toArray()));
+
+		// Facility Marginal Cost
+		if (!fileExists(args[5])) {
+			logFileDNE(args[5]);
+			return;
+		}
+		scanner = getScanner(args[5]);
+		populateDoubleVectorParam(scanner, gj);
+
+		// @TODO
+		System.out.println("Marginal cost: " + Arrays.deepToString(gj.toArray()));
+
+		// Product Unit Transportation Cost
+		if (!fileExists(args[6])) {
+			logFileDNE(args[6]);
+			return;
+		}
+		scanner = getScanner(args[6]);
+		populateDoubleVectorParam(scanner, ck);
+
+		// @TODO Remove
+		System.out.println("Product unit transportation cost: " + Arrays.deepToString(ck.toArray()));
+
+		// Distance from Plant to Facility
+		if (!fileExists(args[7])) {
+			logFileDNE(args[7]);
+			return;
+		}
+		scanner = getScanner(args[7]);
+		populateDistanceMatrix(scanner, lij);
+
+		// @TODO Remove
+		System.out.println("Distance from plant to facility: " + Arrays.deepToString(lij.toArray()));
+
+		// Distance from Facility to Customer
+		if (!fileExists(args[8])) {
+			logFileDNE(args[8]);
+			return;
+		}
+		scanner = getScanner(args[8]);
+		populateDistanceMatrix(scanner, ljr);
+
+		// @TODO Remove
+		System.out.println("Distance from facility to customer: " + Arrays.deepToString(ljr.toArray()));
+
+		// Desired Open Facilities
+		p = Integer.parseInt(args[9]);
+
+		// @TODO Remove
+		System.out.println("Desired open facilities: " + p);
+
+		// Single Allocation or Divisible Demand
+		singleAllocation = args[10].equals("single") ? true : false;
+		System.out.println("Single allocation: " + singleAllocation);
+	}
+	
+	/**
+	 * This method logs that the file does not exist.
+	 * 
+	 * @param file the file which does not exist
+	 */
+	private static void logFileDNE(String file) {
+		LOGGER.log(Level.SEVERE, "File '" + file + "' does not exist.");
 	}
 	
 	/**
@@ -113,6 +229,60 @@ public class CFLP {
 		} catch (Exception e) {
 			LOGGER.log(Level.SEVERE, "Error getting scanner for '" + filePath + "'. " + e.getMessage());
 			return null;
+		}
+	}
+	
+	/**
+	 * This method checks to see if a file exists.
+	 * 
+	 * @param filePath the path to the file to check 
+	 * @return true if the file exists, false otherwise
+	 */
+	private static boolean fileExists(String filePath) {
+		Path pathToFile = Paths.get(filePath);
+		return Files.exists(pathToFile);
+	}
+	
+	/**
+	 * This method populates the integer parameter structure.
+	 * 
+	 * @param scanner the scanner object reading in the file
+	 * @param vectorParam the structure holding the parameter values
+	 */
+	private static void populateIntegerVectorParam(Scanner scanner, List<Integer> vectorParam) {
+		String[] rawLine = scanner.nextLine().split(",");
+		for (String value : rawLine) {
+			vectorParam.add(Integer.parseInt(value));
+		}
+	}
+	
+	/**
+	 * This method populates the double parameter structure.
+	 * 
+	 * @param scanner the scanner object reading in the file
+	 * @param vectorParam the structure holding the parameter values
+	 */
+	private static void populateDoubleVectorParam(Scanner scanner, List<Double> vectorParam) {
+		String[] rawLine = scanner.nextLine().split(",");
+		for (String value : rawLine) {
+			vectorParam.add(Double.parseDouble(value));
+		}
+	}
+	
+	/**
+	 * This method populates the double distance matrix.
+	 * 
+	 * @param scanner the scanner object reading in the file
+	 * @param matrixParam the structure holding the parameter values
+	 */
+	private static void populateDistanceMatrix(Scanner scanner, List<List<Double>> matrixParam) {
+		while(scanner.hasNextLine()) {
+			String[] rawLine = scanner.nextLine().split(",");
+			List<Double> distances = new ArrayList<>();
+			for(String distance : rawLine) {
+				distances.add(Double.parseDouble(distance));
+			}
+			matrixParam.add(distances);
 		}
 	}
 	
