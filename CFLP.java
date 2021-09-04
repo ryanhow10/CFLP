@@ -10,6 +10,12 @@ import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import gurobi.GRB;
+import gurobi.GRBEnv;
+import gurobi.GRBException;
+import gurobi.GRBModel;
+import gurobi.GRBVar;
+
 public class CFLP {
 	
 	private final static Logger LOGGER = Logger.getLogger(CFLP.class.getName());
@@ -56,6 +62,58 @@ public class CFLP {
 		
 		init(args);
 		
+		//Gurobi Environment 
+		GRBEnv env;
+		GRBModel model;
+		try {
+			env = new GRBEnv();
+			model = new GRBModel(env);
+		} catch (GRBException e) {
+			LOGGER.log(Level.SEVERE, "Error creating gurobi enviornment and model. " + e.getMessage());
+			return;
+		}
+		
+		//Decision Variables
+		GRBVar[][][] x = new GRBVar[K][I][J]; //Amount of product k supplied by plant i to facility j
+		for(int k = 0; k < K; k++) {
+			for(int i = 0; i < I; i++) {
+				for(int j = 0; j < J; j++) {
+					double transportationCost = ck.get(k) * lij.get(i).get(j);
+					try {
+						x[i][j][k] = model.addVar(0, GRB.INFINITY, transportationCost, GRB.CONTINUOUS, "x" + i + "," + j + "," + k);
+					} catch (GRBException e) {
+						LOGGER.log(Level.SEVERE, "Error creating xijk decision variables. " + e.getMessage());
+						return;
+					}
+				}
+			}
+		}
+		
+		GRBVar[] z = new GRBVar[J]; //If facility j is open or not
+		for(int j = 0; j < J; j++) {
+			try {
+				z[j] = model.addVar(0, 1, fj.get(j), GRB.BINARY, "z" + j);
+			} catch (GRBException e) {
+				LOGGER.log(Level.SEVERE, "Error creating zj decision variables. " + e.getMessage());
+				return;
+			}
+		}
+		
+		GRBVar[][] y = new GRBVar[J][R]; //If customer r receives supply from facility j
+		for(int j = 0; j < J; j++) {
+			for(int r = 0; r < R; r++) {
+				for(int k = 0; k < K; k++) {
+					double transportationCost = ck.get(k) * ljr.get(j).get(r);
+					try {
+						y[j][r] = model.addVar(0, 1, (transportationCost + gj.get(j)) * drk.get(r).get(k), GRB.BINARY, "y" + j + "," + r);
+					} catch (GRBException e) {
+						LOGGER.log(Level.SEVERE, "Error creating yjr decision variables. " + e.getMessage());
+						return;
+					}
+				}
+			}
+		}
+			
 	}
 	
 	/**
