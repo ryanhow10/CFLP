@@ -6,10 +6,6 @@
 			<attribute name="module" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="/Library/gurobi912/mac64/lib/gurobi.jar">
-		<attributes>
-			<attribute name="module" value="true"/>
-		</attributes>
-	</classpathentry>
+	<classpathentry kind="lib" path="/Library/gurobi912/mac64/lib/gurobi.jar"/>
 	<classpathentry kind="output" path=""/>
 </classpath>

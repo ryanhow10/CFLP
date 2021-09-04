@@ -10,11 +10,7 @@ import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import gurobi.GRB;
-import gurobi.GRBEnv;
-import gurobi.GRBException;
-import gurobi.GRBModel;
-import gurobi.GRBVar;
+import gurobi.*;
 
 public class CFLP {
 	
@@ -80,7 +76,7 @@ public class CFLP {
 				for(int j = 0; j < J; j++) {
 					double transportationCost = ck.get(k) * lij.get(i).get(j);
 					try {
-						x[i][j][k] = model.addVar(0, GRB.INFINITY, transportationCost, GRB.CONTINUOUS, "x" + i + "," + j + "," + k);
+						x[k][i][j] = model.addVar(0, GRB.INFINITY, transportationCost, GRB.CONTINUOUS, "x" + i + "," + j + "," + k);
 					} catch (GRBException e) {
 						LOGGER.log(Level.SEVERE, "Error creating xijk decision variables. " + e.getMessage());
 						return;
@@ -112,8 +108,106 @@ public class CFLP {
 					}
 				}
 			}
+		}	
+		
+		//Objective Function
+		try {
+			model.set(GRB.IntAttr.ModelSense, GRB.MINIMIZE);
+		} catch (GRBException e) {
+			LOGGER.log(Level.SEVERE, "Error setting objective function. " + e.getMessage());
+			return;
 		}
+		
+		//Constraints
+		
+		//Single Allocation for Demand
+		for(int r = 0; r < R; r++) {
+			GRBLinExpr sumOfFacilityDoesSupply = new GRBLinExpr();
+			for(int j = 0; j < J; j++) {
+				sumOfFacilityDoesSupply.addTerm(1, y[j][r]);
+			}
+			try {
+				model.addConstr(sumOfFacilityDoesSupply, GRB.EQUAL, 1, "Customer " + r + "demand");
+			} catch (GRBException e) {
+				logConstraintError("demand", e);
+				return;
+			}
+		}
+		
+		//Production Plant Capacity
+		for(int i = 0; i < I; i++) {
+			for(int k = 0; k < K; k++) {
+				GRBLinExpr productFromPlant = new GRBLinExpr();
+				for(int j = 0; j < J; j++) {
+					productFromPlant.addTerm(1, x[k][i][j]);
+				}
+				try {
+					model.addConstr(productFromPlant, GRB.LESS_EQUAL, pik.get(i).get(k), "Product " + k + " capacity at plant " + i);
+				} catch (GRBException e) {
+					logConstraintError("plant capacity", e);
+					return;
+				}
+			}
+		}
+		
+		//Minimum Facility Activity Level
+		for(int j = 0; j < J; j++) {
+			GRBLinExpr productFromFacility = new GRBLinExpr();
+			for(int r = 0; r < R; r++) {
+				for(int k = 0; k < K; k++) {
+					productFromFacility.addTerm(drk.get(r).get(k), y[j][r]);
+				}
+			}
+			GRBLinExpr capacity = new GRBLinExpr();
+			capacity.addTerm(qj_max.get(j), z[j]);
+			try {
+				model.addConstr(productFromFacility, GRB.LESS_EQUAL, capacity, "Facility " + j + " minimum activity level");
+			} catch (GRBException e) {
+				logConstraintError("facility minimum activity level", e);
+				return;
+			}
+		}
+		
+		//Maximum Facility Activity Level
+		for (int j = 0; j < J; j++) {
+			GRBLinExpr productFromFacility = new GRBLinExpr();
+			for (int r = 0; r < R; r++) {
+				for (int k = 0; k < K; k++) {
+					productFromFacility.addTerm(drk.get(r).get(k), y[j][r]);
+				}
+			}
+			GRBLinExpr capacity = new GRBLinExpr();
+			capacity.addTerm(qj_min.get(j), z[j]);
+			try {
+				model.addConstr(productFromFacility, GRB.GREATER_EQUAL, capacity, "Facility " + j + " maximum activity level");
+			} catch (GRBException e) {
+				logConstraintError("facility maximum activity level", e);
+				return;
+			}
+		}
+		
+		//Facility Product Flow Balance
+		for(int j = 0; j < J; j++) {
+			for(int k = 0; k < K; k++) {
+				GRBLinExpr productIn = new GRBLinExpr();
+				for(int i = 0; i < I; i++) {
+					productIn.addTerm(1, x[k][i][j]);
+				}
+				
+				GRBLinExpr productOut = new GRBLinExpr();
+				for(int r = 0; r < R; r++) {
+					productOut.addTerm(drk.get(r).get(k), y[j][r]);
+				}
 			
+				try {
+					model.addConstr(productIn, GRB.EQUAL, productOut, "Product " + k + " flow balance at facility " + j);
+				} catch (GRBException e) {
+					logConstraintError("flow balance", e);
+					return;
+				} 
+			}
+		}
+		
 	}
 	
 	/**
@@ -342,6 +436,16 @@ public class CFLP {
 			}
 			matrixParam.add(distances);
 		}
+	}
+	
+	/**
+	 * This method logs constraint errors.
+	 * 
+	 * @param constraint the constraint being added to the model
+	 * @param e the exception
+	 */
+	private static void logConstraintError(String constraint, Exception e) {
+		LOGGER.log(Level.SEVERE, "Error adding " + constraint + " constraint. " + e.getMessage());
 	}
 	
 }
