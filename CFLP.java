@@ -79,6 +79,7 @@ public class CFLP {
 						x[k][i][j] = model.addVar(0, GRB.INFINITY, transportationCost, GRB.CONTINUOUS, "x" + i + "," + j + "," + k);
 					} catch (GRBException e) {
 						LOGGER.log(Level.SEVERE, "Error creating xijk decision variables. " + e.getMessage());
+						cleanup(model, env);
 						return;
 					}
 				}
@@ -91,6 +92,7 @@ public class CFLP {
 				z[j] = model.addVar(0, 1, fj.get(j), GRB.BINARY, "z" + j);
 			} catch (GRBException e) {
 				LOGGER.log(Level.SEVERE, "Error creating zj decision variables. " + e.getMessage());
+				cleanup(model, env);
 				return;
 			}
 		}
@@ -98,14 +100,18 @@ public class CFLP {
 		GRBVar[][] y = new GRBVar[J][R]; //If customer r receives supply from facility j
 		for(int j = 0; j < J; j++) {
 			for(int r = 0; r < R; r++) {
+				double totalCost = 0;
 				for(int k = 0; k < K; k++) {
 					double transportationCost = ck.get(k) * ljr.get(j).get(r);
-					try {
-						y[j][r] = model.addVar(0, 1, (transportationCost + gj.get(j)) * drk.get(r).get(k), GRB.BINARY, "y" + j + "," + r);
-					} catch (GRBException e) {
-						LOGGER.log(Level.SEVERE, "Error creating yjr decision variables. " + e.getMessage());
-						return;
-					}
+					double marginalCost = gj.get(j);
+					totalCost += (transportationCost + marginalCost) * drk.get(r).get(k);
+				}
+				try {
+					y[j][r] = model.addVar(0, 1, totalCost, GRB.BINARY, "y" + j + "," + r);
+				} catch (GRBException e) {
+					LOGGER.log(Level.SEVERE, "Error creating yjr decision variables. " + e.getMessage());
+					cleanup(model, env);
+					return;
 				}
 			}
 		}	
@@ -115,6 +121,7 @@ public class CFLP {
 			model.set(GRB.IntAttr.ModelSense, GRB.MINIMIZE);
 		} catch (GRBException e) {
 			LOGGER.log(Level.SEVERE, "Error setting objective function. " + e.getMessage());
+			cleanup(model, env);
 			return;
 		}
 		
@@ -130,6 +137,7 @@ public class CFLP {
 				model.addConstr(sumOfFacilityDoesSupply, GRB.EQUAL, 1, "Customer " + r + "demand");
 			} catch (GRBException e) {
 				logConstraintError("demand", e);
+				cleanup(model, env);
 				return;
 			}
 		}
@@ -145,6 +153,7 @@ public class CFLP {
 					model.addConstr(productFromPlant, GRB.LESS_EQUAL, pik.get(i).get(k), "Product " + k + " capacity at plant " + i);
 				} catch (GRBException e) {
 					logConstraintError("plant capacity", e);
+					cleanup(model, env);
 					return;
 				}
 			}
@@ -164,6 +173,7 @@ public class CFLP {
 				model.addConstr(productFromFacility, GRB.LESS_EQUAL, capacity, "Facility " + j + " minimum activity level");
 			} catch (GRBException e) {
 				logConstraintError("facility minimum activity level", e);
+				cleanup(model, env);
 				return;
 			}
 		}
@@ -182,6 +192,7 @@ public class CFLP {
 				model.addConstr(productFromFacility, GRB.GREATER_EQUAL, capacity, "Facility " + j + " maximum activity level");
 			} catch (GRBException e) {
 				logConstraintError("facility maximum activity level", e);
+				cleanup(model, env);
 				return;
 			}
 		}
@@ -203,10 +214,38 @@ public class CFLP {
 					model.addConstr(productIn, GRB.EQUAL, productOut, "Product " + k + " flow balance at facility " + j);
 				} catch (GRBException e) {
 					logConstraintError("flow balance", e);
+					cleanup(model, env);
 					return;
 				} 
 			}
 		}
+		
+		//Desired Open Facilities
+		GRBLinExpr numberOfFacilities = new GRBLinExpr();
+		for(int j = 0; j < J; j++) {
+			numberOfFacilities.addTerm(1, z[j]);
+		}
+		try {
+			model.addConstr(numberOfFacilities, GRB.EQUAL, p, "Desired number of open facilities");
+		} catch (GRBException e) {
+			logConstraintError("desired open facilities", e);
+			cleanup(model, env);
+			return;
+		}
+		
+		//Solution
+		try {
+			model.optimize();
+		} catch (GRBException e) {
+			LOGGER.log(Level.SEVERE, "Error optimizing model. " + e.getMessage());
+			cleanup(model, env);
+			return;
+		}
+		
+		printSolution(model, env, x, y, z);
+		
+		//Cleanup
+		cleanup(model, env);
 		
 	}
 	
@@ -446,6 +485,124 @@ public class CFLP {
 	 */
 	private static void logConstraintError(String constraint, Exception e) {
 		LOGGER.log(Level.SEVERE, "Error adding " + constraint + " constraint. " + e.getMessage());
+	}
+	
+	/**
+	 * This method cleans up the gurobi model and environment.
+	 * 
+	 * @param model the gurobi model
+	 * @param env the gurobi env
+	 */
+	private static void cleanup(GRBModel model, GRBEnv env) {
+		try {
+			model.dispose();
+			env.dispose();
+		} catch(GRBException e) {
+			LOGGER.log(Level.SEVERE, "Error disposing model and environment. " + e.getMessage());
+		}
+	}
+	
+	/**
+	 * This model prints the solution to the console.
+	 * 
+	 * @param model the gurobi model
+	 * @param env the gurobi environment
+	 * @param x the x decision variable
+	 * @param y the y decision variable
+	 * @param z the z decision variable
+	 */
+	private static void printSolution(GRBModel model, GRBEnv env, GRBVar[][][] x, GRBVar y[][], GRBVar z[]) {
+		System.out.println();
+		System.out.println("***OPTIMAL SOLUTION***");
+		System.out.println();
+		
+		try {
+			System.out.println("Total Cost: " + model.get(GRB.DoubleAttr.ObjVal));
+		} catch (GRBException e) {
+			LOGGER.log(Level.SEVERE, "Error obtaining objective function value. " + e.getMessage());
+			cleanup(model, env);
+			return;
+		}
+		System.out.println();
+		
+		for(int j = 0; j < J; j++) {
+			double facilityOpen;
+			try {
+				facilityOpen = z[j].get(GRB.DoubleAttr.X);
+			} catch (GRBException e) {
+				LOGGER.log(Level.SEVERE, "Error obtaining zj decision variable. " + e.getMessage());
+				cleanup(model, env);
+				return;
+			}
+			
+			if(facilityOpen > 0.99) {
+				System.out.println("Facility " + j + ": Open");
+			} else {
+				System.out.println("Facility " + j + ": Closed");
+			}
+		}
+		System.out.println();
+		
+		for(int k = 0; k < K; k++) {
+			System.out.println("Product " + k);
+			
+			for(int j = 0; j < J; j++) {
+				if(j == 0) {
+					System.out.format("%-12s%-12s", "▽From/To▷", "Facility " + j);
+					continue;
+				}
+				System.out.format("%-12s", "Facility " + j);
+			}
+			System.out.println();
+			
+			for(int i = 0; i < I; i++) {
+				System.out.format("%-12s", "Plant " + i);
+				for(int j = 0; j < J; j++) {
+					double plantToFacilityAmount;
+					try {
+						plantToFacilityAmount = x[k][i][j].get(GRB.DoubleAttr.X);
+					} catch (GRBException e) {
+						LOGGER.log(Level.SEVERE, "Error obtaining xijk decision variable. " + e.getMessage());
+						cleanup(model, env);
+						return;
+					}
+					System.out.format("%-12.2f", plantToFacilityAmount);
+				}
+				System.out.println();
+			}
+			System.out.println();
+		}
+		
+		for(int k = 0; k < K; k++) {
+			System.out.println("Product " + k);
+			
+			for(int r = 0; r < R; r++) {
+				if(r == 0) {
+					System.out.format("%-12s%-12s", "▽From/To▷", "Customer " + r);
+					continue;
+				}
+				System.out.format("%-12s", "Customer " + r);
+			}
+			System.out.println();
+			
+			for(int j = 0; j < J; j++) {
+				System.out.format("%-12s", "Facility " + j);
+				for(int r = 0; r < R; r++) {
+					double demandFromFacility;
+					try {
+						demandFromFacility = y[j][r].get(GRB.DoubleAttr.X);
+					} catch (GRBException e) {
+						LOGGER.log(Level.SEVERE, "Error obtaining yjr decision variable. " + e.getMessage());
+						cleanup(model, env);
+						return;
+					}
+					System.out.format("%-12d", demandFromFacility == 1 ? drk.get(r).get(k) : 0);
+				}
+				System.out.println();
+			}
+			
+			System.out.println();
+		}
 	}
 	
 }
