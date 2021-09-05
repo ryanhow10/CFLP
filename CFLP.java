@@ -23,23 +23,23 @@ public class CFLP {
 	private final static Logger LOGGER = Logger.getLogger(CFLP.class.getName());
 	
 	//Sets
-	private static int K = 0; // Set of commodities/products
-	private static int I = 0; // Set of production plant
-	private static int J = 0; // Set of potential candidate facility locations
-	private static int R = 0; // Set of customers
+	private static int K = 0; //Set of commodities/products
+	private static int I = 0; //Set of production plant
+	private static int J = 0; //Set of potential candidate facility locations
+	private static int R = 0; //Set of customers
 
 	//Parameters
-	private static List<List<Integer>> drk = new ArrayList<>(); // Demand of product k for customer r
-	private static List<List<Integer>> pik = new ArrayList<>(); // Capacity of product k for plant i
-	private static List<Integer> qj_min = new ArrayList<>(); // Minimum activity level for facility j
-	private static List<Integer> qj_max = new ArrayList<>(); // Maximum activity level for facility j
-	private static List<Double> fj = new ArrayList<>(); // Facility fixed cost
-	private static List<Double> gj = new ArrayList<>(); // Facility marginal cost
-	private static List<Double> ck = new ArrayList<>(); // Unit transportation cost for product k
-	private static List<List<Double>> lij = new ArrayList<>(); // Distance from plant i to facility j
-	private static List<List<Double>> ljr = new ArrayList<>(); // Distance from facility j to customer r
-	private static int p; // Desired number of facilities to be open
-	private static boolean singleAllocation; // Single allocation or divisible demand
+	private static List<List<Integer>> drk = new ArrayList<>(); //Demand of product k for customer r
+	private static List<List<Integer>> pik = new ArrayList<>(); //Capacity of product k for plant i
+	private static List<Integer> qj_min = new ArrayList<>(); //Minimum activity level for facility j
+	private static List<Integer> qj_max = new ArrayList<>(); //Maximum activity level for facility j
+	private static List<Double> fj = new ArrayList<>(); //Facility fixed cost
+	private static List<Double> gj = new ArrayList<>(); //Facility marginal cost
+	private static List<Double> ck = new ArrayList<>(); //Unit transportation cost for product k
+	private static List<List<Double>> lij = new ArrayList<>(); //Distance from plant i to facility j
+	private static List<List<Double>> ljr = new ArrayList<>(); //Distance from facility j to customer r
+	private static int p; //Desired number of facilities to be open
+	private static boolean singleAllocation; //Single allocation or divisible demand
 	
 	//Decision Variables
 	private static GRBVar[][][] x; //Amount of product k supplied by plant i to facility j (single allocation model)
@@ -48,24 +48,9 @@ public class CFLP {
 	private static GRBVar[][][][] s; //Amount of product k supplied by plant i to facility j to customer r (divisible demand model)
 	
 	
-	public static void main(String[] args) {
-		/*
-		 * Arguments
-		 * 1 - file with matrix of demand of product k for customer r
-		 * 2 - file with matrix of capacity of product k for plant i
-		 * 3 - file with minimum activity level for facilities
-		 * 4 - file with maximum activity level for facilities 
-		 * 5 - file with fixed cost for facilities
-		 * 6 - file with marginal cost for facilities
-		 * 7 - file with unit transportation cost for product k
-		 * 8 - file with distances from plant to facility
-		 * 9 - file with distances from facility to customer
-		 * 10 - desired number of facilities to be open
-		 * 11 - "single" or "divisible" 
-		 */
-		
+	public static void main(String[] args) {		
 		if(args.length != 11) {
-			LOGGER.log(Level.SEVERE, "Invalid input. Please reference README for execution instructions.");
+			LOGGER.log(Level.SEVERE, "Invalid input. Please reference README.md for execution instructions.");
 			return;
 		}
 		
@@ -112,12 +97,12 @@ public class CFLP {
 	}
 	
 	/**
-	 * This method initializes all the sets and parameters.
+	 * This method initializes all the sets, parameters and decision variables. 
 	 * 
 	 * @param args the command line arguments
 	 */
 	private static void init(String[] args) {
-		// Customer Demand
+		//Customer Demand
 		if (!fileExists(args[0])) {
 			logFileDNE(args[0]);
 			return;
@@ -135,12 +120,7 @@ public class CFLP {
 			K = demands.size();
 		}
 
-		// @TODO Remove
-		System.out.println("R: " + R);
-		System.out.println("K: " + K);
-		System.out.println("Demand: " + Arrays.deepToString(drk.toArray()));
-
-		// Plant Capacity
+		//Plant Capacity
 		if (!fileExists(args[1])) {
 			logFileDNE(args[1]);
 			return;
@@ -157,11 +137,7 @@ public class CFLP {
 			pik.add(capacities);
 		}
 
-		// @TODO Remove
-		System.out.println("I: " + I);
-		System.out.println("Capcities: " + Arrays.deepToString(pik.toArray()));
-
-		// Facility Minimum Activity Level
+		//Facility Minimum Activity Level
 		if (!fileExists(args[2])) {
 			logFileDNE(args[2]);
 			return;
@@ -176,11 +152,7 @@ public class CFLP {
 			J = rawLine.length;
 		}
 
-		// @TODO Remove
-		System.out.println("J: " + J);
-		System.out.println("Min activity: " + Arrays.deepToString(qj_min.toArray()));
-
-		// Facility Maximum Activity Level
+		//Facility Maximum Activity Level
 		if (!fileExists(args[3])) {
 			logFileDNE(args[3]);
 			return;
@@ -188,21 +160,15 @@ public class CFLP {
 		scanner = getScanner(args[3]);
 		populateIntegerVectorParam(scanner, qj_max);
 
-		// @TODO Remove
-		System.out.println("Max acitivity: " + Arrays.deepToString(qj_max.toArray()));
-
-		// Facility Fixed Cost
+		//Facility Fixed Cost
 		if (!fileExists(args[4])) {
 			logFileDNE(args[4]);
 			return;
 		}
 		scanner = getScanner(args[4]);
 		populateDoubleVectorParam(scanner, fj);
-
-		// @TODO Remove
-		System.out.println("Fixed cost: " + Arrays.deepToString(fj.toArray()));
-
-		// Facility Marginal Cost
+		
+		//Facility Marginal Cost
 		if (!fileExists(args[5])) {
 			logFileDNE(args[5]);
 			return;
@@ -210,10 +176,7 @@ public class CFLP {
 		scanner = getScanner(args[5]);
 		populateDoubleVectorParam(scanner, gj);
 
-		// @TODO
-		System.out.println("Marginal cost: " + Arrays.deepToString(gj.toArray()));
-
-		// Product Unit Transportation Cost
+		//Product Unit Transportation Cost
 		if (!fileExists(args[6])) {
 			logFileDNE(args[6]);
 			return;
@@ -221,10 +184,7 @@ public class CFLP {
 		scanner = getScanner(args[6]);
 		populateDoubleVectorParam(scanner, ck);
 
-		// @TODO Remove
-		System.out.println("Product unit transportation cost: " + Arrays.deepToString(ck.toArray()));
-
-		// Distance from Plant to Facility
+		//Distance from Plant to Facility
 		if (!fileExists(args[7])) {
 			logFileDNE(args[7]);
 			return;
@@ -232,10 +192,7 @@ public class CFLP {
 		scanner = getScanner(args[7]);
 		populateDistanceMatrix(scanner, lij);
 
-		// @TODO Remove
-		System.out.println("Distance from plant to facility: " + Arrays.deepToString(lij.toArray()));
-
-		// Distance from Facility to Customer
+		//Distance from Facility to Customer
 		if (!fileExists(args[8])) {
 			logFileDNE(args[8]);
 			return;
@@ -243,18 +200,11 @@ public class CFLP {
 		scanner = getScanner(args[8]);
 		populateDistanceMatrix(scanner, ljr);
 
-		// @TODO Remove
-		System.out.println("Distance from facility to customer: " + Arrays.deepToString(ljr.toArray()));
-
-		// Desired Open Facilities
+		//Desired Open Facilities
 		p = Integer.parseInt(args[9]);
 
-		// @TODO Remove
-		System.out.println("Desired open facilities: " + p);
-
-		// Single Allocation or Divisible Demand
+		//Single Allocation or Divisible Demand
 		singleAllocation = args[10].equals("single") ? true : false;
-		System.out.println("Single allocation: " + singleAllocation);
 		
 		z = new GRBVar[J];
 		if(singleAllocation) {
@@ -263,6 +213,17 @@ public class CFLP {
 		} else {
 			s = new GRBVar[K][I][J][R];
 		}
+	}
+	
+	/**
+	 * This method checks to see if a file exists.
+	 * 
+	 * @param filePath the path to the file to check 
+	 * @return true if the file exists, false otherwise
+	 */
+	private static boolean fileExists(String filePath) {
+		Path pathToFile = Paths.get(filePath);
+		return Files.exists(pathToFile);
 	}
 	
 	/**
@@ -291,17 +252,6 @@ public class CFLP {
 			LOGGER.log(Level.SEVERE, "Error getting scanner for '" + filePath + "'. " + e.getMessage());
 			return null;
 		}
-	}
-	
-	/**
-	 * This method checks to see if a file exists.
-	 * 
-	 * @param filePath the path to the file to check 
-	 * @return true if the file exists, false otherwise
-	 */
-	private static boolean fileExists(String filePath) {
-		Path pathToFile = Paths.get(filePath);
-		return Files.exists(pathToFile);
 	}
 	
 	/**
@@ -430,10 +380,25 @@ public class CFLP {
 	}
 	
 	/**
-	 * This method adds constraints to the model based on if the model is single allocation or divisible demand.
+	 * This method cleans up the gurobi model and environment.
 	 * 
 	 * @param model the gurobi model
 	 * @param env the gurobi env
+	 */
+	private static void cleanup(GRBModel model, GRBEnv env) {
+		try {
+			model.dispose();
+			env.dispose();
+		} catch(GRBException e) {
+			LOGGER.log(Level.SEVERE, "Error disposing model and environment. " + e.getMessage());
+		}
+	}
+	
+	/**
+	 * This method adds constraints to the model based on if the model is single allocation or divisible demand.
+	 * 
+	 * @param model the gurobi model
+	 * @param env the gurobi environment
 	 */
 	private static void addConstraints(GRBModel model, GRBEnv env) {
 		// Desired Open Facilities
@@ -465,7 +430,7 @@ public class CFLP {
 				}
 			}
 
-			// Production Plant Capacity
+			//Production Plant Capacity
 			for (int i = 0; i < I; i++) {
 				for (int k = 0; k < K; k++) {
 					GRBLinExpr productFromPlant = new GRBLinExpr();
@@ -625,7 +590,6 @@ public class CFLP {
 		}
 	}
 	
-	
 	/**
 	 * This method logs constraint errors.
 	 * 
@@ -634,21 +598,6 @@ public class CFLP {
 	 */
 	private static void logConstraintError(String constraint, Exception e) {
 		LOGGER.log(Level.SEVERE, "Error adding " + constraint + " constraint. " + e.getMessage());
-	}
-	
-	/**
-	 * This method cleans up the gurobi model and environment.
-	 * 
-	 * @param model the gurobi model
-	 * @param env the gurobi env
-	 */
-	private static void cleanup(GRBModel model, GRBEnv env) {
-		try {
-			model.dispose();
-			env.dispose();
-		} catch(GRBException e) {
-			LOGGER.log(Level.SEVERE, "Error disposing model and environment. " + e.getMessage());
-		}
 	}
 	
 	/**
@@ -679,7 +628,7 @@ public class CFLP {
 			try {
 				facilityOpen = z[j].get(GRB.DoubleAttr.X);
 			} catch (GRBException e) {
-				LOGGER.log(Level.SEVERE, "Error obtaining zj decision variable. " + e.getMessage());
+				logDecisionVariableValue("zj", e);
 				cleanup(model, env);
 				return;
 			}
@@ -712,7 +661,7 @@ public class CFLP {
 						try {
 							plantToFacilityAmount = x[k][i][j].get(GRB.DoubleAttr.X);
 						} catch (GRBException e) {
-							LOGGER.log(Level.SEVERE, "Error obtaining xijk decision variable. " + e.getMessage());
+							logDecisionVariableValue("xijk", e);
 							cleanup(model, env);
 							return;
 						}
@@ -742,7 +691,7 @@ public class CFLP {
 						try {
 							demandFromFacility = y[j][r].get(GRB.DoubleAttr.X);
 						} catch (GRBException e) {
-							LOGGER.log(Level.SEVERE, "Error obtaining yjr decision variable. " + e.getMessage());
+							logDecisionVariableValue("yjr", e);
 							cleanup(model, env);
 							return;
 						}
@@ -763,7 +712,7 @@ public class CFLP {
 							try {
 								product = s[k][i][j][r].get(GRB.DoubleAttr.X);
 							} catch (GRBException e) {
-								LOGGER.log(Level.SEVERE, "Error obtaining skijr decision variable. " + e.getMessage());
+								logDecisionVariableValue("skijr", e);
 								cleanup(model, env);
 								return;
 							}
@@ -777,6 +726,16 @@ public class CFLP {
 			}
 		}
 		
+	}
+	
+	/**
+	 * This method logs errors when obtaining the decision variable values.
+	 * 
+	 * @param decisionVariable the decision variable being obtained
+	 * @param e the exception
+	 */
+	private static void logDecisionVariableValue(String decisionVariable, Exception e) {
+		LOGGER.log(Level.SEVERE, "Error obtaining " + decisionVariable + " decision variable value. " + e.getMessage());
 	}
 	
 }
