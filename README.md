@@ -14,13 +14,13 @@ This implementation deals with
 
 The goal is to select a specified number of facility locations such that customer demands are satisfied and total cost is minimized. This must be achieved while keeping in mind the activity level and capacity constraints of the various locations.
 
-With these types of problems, demand can either be non-divisible (single allocation), meaning the demand of the customers is provided by a single facility or demand can be divisible (multiple allocation), meaning the demand of the customers can be fulfilled by multiple facilities.
+With this problem, demand can either be non-divisible (single allocation), meaning the demand of the customers is provided by a single facility or demand can be divisible (multiple allocation), meaning the demand of the customers can be fulfilled by multiple facilities.
 
 ---
 ### 2-Echelon Multi-Commodity Single Allocation Model
 The first model is a 2-echelon multi-commodity single allocation model. 2-echelon means that both inward and outward flows from the facilities are of interest. The model is concerned with a set of products (multi-commodity) and the demands of these products can be fulfilled by a single facility (single allocation). The full model is displayed below. 
 <p align="center">
-<img width="635" alt="Screen Shot 2021-09-05 at 4 41 58 PM" src="https://user-images.githubusercontent.com/48066840/132140932-447e33c2-7ce6-4bad-a43f-6d8a006db0a5.png">
+<img width="635" alt="Screen Shot 2021-09-05 at 8 39 29 PM" src="https://user-images.githubusercontent.com/48066840/132146126-fe157c91-a48f-4212-904a-82b61bf6bfa1.png">
 </p>
 <p align="center">
 <img width="635" alt="Screen Shot 2021-09-05 at 4 48 13 PM" src="https://user-images.githubusercontent.com/48066840/132141026-27cb6c4c-c1fb-4422-bfac-4d72720d9322.png">
@@ -87,19 +87,31 @@ There are a total of 11 arguments needed for the program which are listed below.
 
 ---
 ### Example
-Displayed below is an example scenario that demonstrates the CFLP. There exist 2 production plants, 3 potential facility locations and 2 customers. The example files can be found in the root of the directory. The 10th argument is the value of 2 to represent 2 open facilities and the 11th argument will first be "single" and then "divisible".
+Displayed below is an example scenario that demonstrates the CFLP. There exist 2 production plants, 3 potential facility locations and 2 customers. The example files can be found in the root of the directory. The 10th argument is the value of 2 to represent the desired 2 open facilities and the 11th argument will first be "single" and then "divisible".
+
+#### Example Visualization
 <p align="center">
 <img width="650" src="https://user-images.githubusercontent.com/48066840/132141490-78788f24-0411-4e1b-bae7-159c39295f3b.png">
 </p>
 
-**LEGEND:** The thicker arrows represent product 1 and the thinner arrows represent product 2.
+#### Single Allocation Model Console Output
+<p align="center">
+<img width="350" alt="Screen Shot 2021-09-05 at 8 45 52 PM" src="https://user-images.githubusercontent.com/48066840/132146382-142d6c89-274a-49da-976f-526de7a8d240.png">
+</p>
 
-#### Single Allocation Model Solution  
+#### Single Allocation Model Visualization  
+Thicker arrows represent flow of product 1 and thinner arrows represent flow of product 2.
 <p align="center">
 <img width="650" src="https://user-images.githubusercontent.com/48066840/132141526-34bc36ad-8030-4162-ba2e-1adba8595582.png">
 </p>
 
+#### Divisible Demand Model Console Output
+<p align="center">
+<img width="300" alt="Screen Shot 2021-09-05 at 8 46 19 PM" src="https://user-images.githubusercontent.com/48066840/132146381-94b77559-1658-4bc6-b8ea-4ff2416802e9.png">
+</p>
+
 #### Divisible Demand Model Solution
+Thicker arrows represent flow of product 1 and thinner arrows represent flow of product 2.
 <p align="center">
 <img width="650" src="https://user-images.githubusercontent.com/48066840/132141555-45c9bd72-1db1-44ed-a10c-9b40257ae317.jpg">
 </p>
